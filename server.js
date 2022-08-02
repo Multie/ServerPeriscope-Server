@@ -274,7 +274,7 @@ class WebServer {
                 }
                 res.status(200).send();
                 let curdate = new Date(Date.now())
-                var filename = `${host.name}#${(curdate.toISOString()).replace(/:/g, "_").replace(/./g, ",")}.zip`
+                var filename = `${host.name}#${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}.zip`
                 var filepath = `${__dirname}${PATH.sep}data${PATH.sep}${filename}`;
                 FS.mkdir(PATH.dirname(filepath), { recursive: true }, (err) => {
                     if (err) {
