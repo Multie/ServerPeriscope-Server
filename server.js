@@ -235,7 +235,7 @@ class WebServer {
                         })
                         files = files.map((file) => {
                             var split1 = file.name.replace(".zip", "").split("#");
-                            return { name: file.name, host: split1[0], date: new Date(split1[1].replace(/,/g, ":").replace(/,/g, ".")) };
+                            return { name: file.name, host: split1[0], date: new Date(split1[1].replace(/_/g, ":").replace(/,/g, ".")) };
                         });
 
                         files.sort((a, b) => {
