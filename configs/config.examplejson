@@ -1,0 +1,6 @@
+{
+    "recievePort_description":"Port on witch the TCP Server should listen for requests",
+    "recievePort":4321,
+    "websocketPort_description":"Port of the Websocket and Webserver",
+    "websocketPort":8080
+}
