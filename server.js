@@ -235,7 +235,7 @@ class WebServer {
                         })
                         files = files.map((file) => {
                             var split1 = file.name.replace(".zip", "").split("#");
-                            return { name: file.name, host: split1[0], date: new Date(split1[1].replaceAll("_", ":").replaceAll(",", ".")) };
+                            return { name: file.name, host: split1[0], date: new Date(split1[1].replace(/,/g, ":").replace(/,/g, ".")) };
                         });
 
                         files.sort((a, b) => {
@@ -273,7 +273,7 @@ class WebServer {
                     return;
                 }
                 let curdate = new Date(Date.now())
-                var filename = `${host.name}#${(curdate.toISOString()).replaceAll(":", "_").replaceAll(".", ",")}.zip`
+                var filename = `${host.name}#${(curdate.toISOString()).replace(/:/g, "_").replace(/./g, ",")}.zip`
                 var filepath = `${__dirname}${PATH.sep}data${PATH.sep}${filename}`;
                 FS.mkdir(PATH.dirname(dataPath), { recursive: true }, (err) => {
                     if (err) {
