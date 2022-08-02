@@ -37,7 +37,7 @@ process.stdin.on('keypress', (str, key) => {
 var logger_names = [];
 var logger_backlog = [];
 var logger_input = false;
-var logger_colors = { err: "\u001b[31m", info: "\x1b[37m", warn: "\x1b[33m" }
+var logger_colors = { err: "\u001b[31m", info: "\x1b[37m", warn: "\x1b[33m", reset:"\u001b[0m"}
 function logger(type, name, text, force = false) {
     if (!logger_names.includes(name)) {
         logger_names.push(name);
@@ -152,7 +152,9 @@ class WebServer {
         try {
 
             this.websocketserver = new WebSocketServer({ noServer: true });
+            logger("info","Websocket","Start");
             this.websocketserver.on('connection', (ws, req) => {
+                logger("info","Websocket",`Host ${this.activeHost.name} connected`);
                 //logger("info", "WSS", "Connected");
                 ws.on('message', (text) => {
                     let data = JSON.parse(text);
@@ -168,25 +170,27 @@ class WebServer {
                 });
 
                 ws.on('close', (err) => {
+                    logger("info","Websocket",`Host ${this.activeHost.name} disconnected`);
                     this.incommingEvents.removeAllListeners("event");
                     //logger("info", "WSS", "ws Closed");
                 });
                 ws.on('error', (err) => {
+                    logger("err","Websocket",`Host ${this.activeHost.name} errored ${err}`);
                     this.incommingEvents.removeAllListeners("event");
                     //logger("err", "WSS", err);
                 });
             });
             this.websocketserver.on("close", () => {
                 this.incommingEvents.removeAllListeners("event");
-                logger("info", "WSS", "wss Closed");
+                logger("err","Websocket",`Closed`);
             });
             this.websocketserver.on("error", (err) => {
                 this.incommingEvents.removeAllListeners("event");
-                logger("err", "WSS", err);
+                logger("err","Websocket",`Error ${err}`);
             });
         }
         catch (err) {
-            logger("err", "WSS", err);
+            logger("err","Websocket",`Error ${err}`);
         }
     }
     setup() {
@@ -302,7 +306,7 @@ class WebServer {
                 this.disconnectWebsocketClients().then(() => {
                     host.ip = req.ip;
                     this.activeHost = host;
-                    logger("info", "Host", "Set new host:" + host.name)
+                    logger("info", "Webserver", "Set new host:" + host.name)
                 });
             });
             resolve();
@@ -323,6 +327,8 @@ class WebServer {
                 socket.destroy();
                 return;
             }
+
+            
             this.websocketserver.handleUpgrade(request, socket, head, socket => {
                 this.websocketserver.emit('connection', socket, request);
             });
@@ -351,7 +357,7 @@ class TcpServer {
             try {
                 // Limit Maximale Verbindungen gleichzeitig
                 var cons = this.connections.filter((val) => {
-                    return val.ip == con.ip;
+                    return val.ip == socket.remoteAddress;
                 })
                 if (cons.length > 5) {
                     socket.destroy();
