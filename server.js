@@ -249,14 +249,14 @@ class WebServer {
                                 return 0;
                             }
                         })
-
+                        logger("info","Get Service",`Current Data:${files[0].name}`);
                         FS.readFile(dataPath + PATH.sep + files[0].name, { encoding: null }, (err, data) => {
                             if (err) {
                                 console.trace(err);
                                 res.status(400).send(err);
                                 return;
                             }
-                            res.send(data);
+                            res.status(200).send(data);
                         });
                     })
                 });
