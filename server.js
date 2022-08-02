@@ -281,15 +281,19 @@ class WebServer {
                         res.status(400).send(err);
                         return;
                     }
-                    FS.writeFile(filepath, data, (err) => {
+                    var filewriter = FS.createWriteStream(filepath);
+                    req.pipe(filewriter).on("end",()=> {
+                        logger("Webserver", `Uploaded new Service ${filename}`);
+                        res.status(200).send();
+                    })
+                    /*FS.writeFile(filepath, data, (err) => {
                         if (err) {
                             console.trace(err);
                             res.status(400).send(err);
                             return;
                         }
-                        logger("Webserver", `Uploaded new Service ${filename}`);
-                        res.status(200).send();
-                    });
+                        
+                    });*/
                 });
             });
             // become host
