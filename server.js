@@ -272,19 +272,20 @@ class WebServer {
                     res.status(401).send();
                     return;
                 }
+                res.status(200).send();
                 let curdate = new Date(Date.now())
                 var filename = `${host.name}#${(curdate.toISOString()).replace(/:/g, "_").replace(/./g, ",")}.zip`
                 var filepath = `${__dirname}${PATH.sep}data${PATH.sep}${filename}`;
                 FS.mkdir(PATH.dirname(filepath), { recursive: true }, (err) => {
                     if (err) {
                         console.trace(err);
-                        res.status(400).send(err);
+                        //res.status(400).send(err);
                         return;
                     }
                     var filewriter = FS.createWriteStream(filepath);
                     req.pipe(filewriter).on("end",()=> {
                         logger("Webserver", `Uploaded new Service ${filename}`);
-                        res.status(200).send();
+                        //res.status(200).send();
                     })
                     /*FS.writeFile(filepath, data, (err) => {
                         if (err) {
