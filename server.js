@@ -199,10 +199,10 @@ class WebServer {
             }));
             this.webserver.use(bodyParser.raw({
                 type: "application/octet-stream",
-                limit:'100000mb'
+                limit: '100000mb'
             }));
 
-             // Download latest File
+            // Download latest File
             this.webserver.get("/data", (req, res) => {
                 var authorization = req.headers.authorization;
                 var host = this.hosts.find((host) => {
@@ -213,44 +213,50 @@ class WebServer {
                     return;
                 }
                 var dataPath = `${__dirname}${PATH.sep}data`
-                FS.readdir(dataPath, { withFileTypes: true }, (err, files) => {
+
+                FS.mkdir(PATH.dirname(dataPath), { recursive: true }, (err) => {
                     if (err) {
                         console.trace(err);
                         res.status(400).send(err);
                         return;
                     }
-                    files = files.filter((file) => {
-                        return file.isFile();
-                    })
-                    files = files.map((file) => {
-                        var split1 = file.name.replace(".zip", "").split("#");
-                        return { name:file.name, host: split1[0], date: new Date(split1[1].replaceAll("_",":").replaceAll(",",".")) };
-                    });
-
-                    files.sort((a,b)=> {
-                        if (a.date < b.date) {
-                            return 1;
-                        }
-                        else if (a.date > b.date) {
-                            return -1;
-                        }
-                        else {
-                            return 0;
-                        }
-                    })
-
-                    FS.readFile(dataPath + PATH.sep + files[0].name, { encoding: null }, (err, data) => {
+                    FS.readdir(dataPath, { withFileTypes: true }, (err, files) => {
                         if (err) {
                             console.trace(err);
                             res.status(400).send(err);
                             return;
                         }
-                        res.send(data);
-                    });
+                        files = files.filter((file) => {
+                            return file.isFile();
+                        })
+                        files = files.map((file) => {
+                            var split1 = file.name.replace(".zip", "").split("#");
+                            return { name: file.name, host: split1[0], date: new Date(split1[1].replaceAll("_", ":").replaceAll(",", ".")) };
+                        });
 
-                    //res.json(files[0]);
+                        files.sort((a, b) => {
+                            if (a.date < b.date) {
+                                return 1;
+                            }
+                            else if (a.date > b.date) {
+                                return -1;
+                            }
+                            else {
+                                return 0;
+                            }
+                        })
+
+                        FS.readFile(dataPath + PATH.sep + files[0].name, { encoding: null }, (err, data) => {
+                            if (err) {
+                                console.trace(err);
+                                res.status(400).send(err);
+                                return;
+                            }
+                            res.send(data);
+                        });
+                    })
                 });
-            });       
+            });
             // Upload File 
             this.webserver.post("/data", (req, res) => {
                 var data = req.body;
@@ -263,16 +269,23 @@ class WebServer {
                     return;
                 }
                 let curdate = new Date(Date.now())
-                var filename = `${host.name}#${curdate.toISOString().replaceAll(":","_").replaceAll(".",",")}.zip`
+                var filename = `${host.name}#${curdate.toISOString().replaceAll(":", "_").replaceAll(".", ",")}.zip`
                 var filepath = `${__dirname}${PATH.sep}data${PATH.sep}${filename}`;
-                FS.writeFile(filepath, data, (err) => {
+                FS.mkdir(PATH.dirname(dataPath), { recursive: true }, (err) => {
                     if (err) {
                         console.trace(err);
                         res.status(400).send(err);
                         return;
                     }
-                    logger("Webserver",`Uploaded new Service ${filename}`);
-                    res.status(200).send();
+                    FS.writeFile(filepath, data, (err) => {
+                        if (err) {
+                            console.trace(err);
+                            res.status(400).send(err);
+                            return;
+                        }
+                        logger("Webserver", `Uploaded new Service ${filename}`);
+                        res.status(200).send();
+                    });
                 });
             });
             // become host
@@ -301,7 +314,7 @@ class WebServer {
             console.log(`Example app listening on port ${config.websocketPort}`)
         });
         this.server.on('upgrade', (request, socket, head) => {
-            
+
             if (!this.activeHost) {
                 socket.destroy();
                 return;
