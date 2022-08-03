@@ -105,6 +105,7 @@ var clients = readConfig(`${__dirname}${PATH.sep}configs${PATH.sep}clients.json`
 const express = require('express');
 const bodyParser = require("body-parser");
 const ws = require("ws");
+const FSE = require('fs-extra')
 const WebSocketServer = ws.WebSocketServer;
 class WebServer {
 
@@ -339,7 +340,7 @@ class WebServer {
                             return;
                         }
                         var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
-                        FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
+                        FSE.copy(sourcePath, targetPath, (err) => {
                             if (err) {
                                 logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
                                 res.status(500).send(err);
