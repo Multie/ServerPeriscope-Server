@@ -178,6 +178,8 @@ class WebServer {
                 if (err) {
                     reject(err);
                 }
+
+
                 files = files.filter((file) => {
                     return file.isDirectory();
                 });
@@ -296,44 +298,14 @@ class WebServer {
                     res.status(401).send();
                     return;
                 }
-               
-                this.getLatestFolder().then((latest)=> {
+
+                this.getLatestFolder().then((latest) => {
                     res.status(200).send(latest.name);
-                },(err)=> {
+                }, (err) => {
                     logger("info", "latest", `Error ${err}`);
                     res.status(500).send(err);
                 });
             });
-            // get File
-           /* this.webserver.get("/latest/*", (req, res) => {
-                var authorization = req.headers.authorization;
-                var host = this.hosts.find((host) => {
-                    return host.authorization == authorization
-                });
-                if (host == undefined) {
-                    res.status(401).send();
-                    return;
-                }
-
-                getLatestFolder().then((latestFolder) => {
-                    var path = req.path.slice(13).replace(/\//g, PATH.sep);
-                    var filePath = [dataPath, latestFolder.name, path].join(PATH.sep);
-                    console.log(filePath);
-                    if (!FS.existsSync(filePath)) {
-                        res.status(404).send("File not found");
-                        return;
-                    }
-                    FS.readFile(filePath, (err, data) => {
-                        if (err) {
-                            logger("err", "Get Lastest File", `Error on ${path} ${err}`)
-                            res.status(500).send(err);
-                            return;
-                        }
-                        res.send(data);
-                    });
-
-                });
-            });*/
             // Create a new State
             this.webserver.get("/newlatest", (req, res) => {
                 var authorization = req.headers.authorization;
@@ -344,26 +316,39 @@ class WebServer {
                     res.status(401).send();
                     return;
                 }
+                let curdate = new Date(Date.now())
+                var filename = `${host.name}+${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}`
+                var targetPath = [__dirname, "data", filename].join(PATH.sep);
                 this.getLatestFolder().then((latestFolder) => {
-                    if ((Date.now() - latestFolder.date.getTime() < 30000) && (host.name == latestFolder.host)) {
-                        logger("info", "newlatest", `Old ${latestFolder.name}`)
-                        res.status(200).send(latestFolder.name);
-                        return;
-                    }
-                    let curdate = new Date(Date.now())
-                    var filename = `${host.name}+${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}`
-                    var targetPath = [__dirname, "data", filename].join(PATH.sep);
-                    var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
+                    if (!latestFolder) {
+                        FS.mkdir(targetPath, { recursive: true }, (err) => {
+                            if (err) {
+                                logger("err", "newlatest", `Create directory error ${targetPath} ${err}`)
+                                res.status(500).send(err);
+                                return;
+                            }
+                            logger("info", "newlatest", `New ${filename}`)
+                            res.status(200).send(filename);
+                        })
 
-                    FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
-                        if (err) {
-                            logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
-                            res.status(500).send(err);
+                    }
+                    else {
+                        if ((Date.now() - latestFolder.date.getTime() < 30000) && (host.name == latestFolder.host)) {
+                            logger("info", "newlatest", `Old ${latestFolder.name}`)
+                            res.status(200).send(latestFolder.name);
                             return;
                         }
-                        logger("info", "newlatest", `New ${filename}`)
-                        res.status(200).send(filename);
-                    });
+                        var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
+                        FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
+                            if (err) {
+                                logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                                res.status(500).send(err);
+                                return;
+                            }
+                            logger("info", "newlatest", `New ${filename}`)
+                            res.status(200).send(filename);
+                        });
+                    }
                 });
 
 
@@ -378,14 +363,14 @@ class WebServer {
                     res.status(401).send();
                     return;
                 }
-                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
+                var folderpath = [__dirname, "data", req.params.state].join(PATH.sep);
 
-                    this.getAllFilesStats(folderpath).then((stats) => {
-                        res.status(200).json(stats);
-                    }, (err) => {
-                        res.status(500).send(err);
-                    });
-        
+                this.getAllFilesStats(folderpath).then((stats) => {
+                    res.status(200).json(stats);
+                }, (err) => {
+                    res.status(500).send(err);
+                });
+
             });
             // Get File
             this.webserver.get("/data/:state/*", (req, res) => {
@@ -398,13 +383,13 @@ class WebServer {
                     return;
                 }
 
-                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
-                var relpath = decodeURI(req.path).replace(/%23/g,"#").slice(("/data/" + req.params.state+ "/").length).replace(/\//g,PATH.sep);
-                var filepath = [folderpath,relpath].join(PATH.sep);
+                var folderpath = [__dirname, "data", req.params.state].join(PATH.sep);
+                var relpath = decodeURI(req.path).replace(/%23/g, "#").slice(("/data/" + req.params.state + "/").length).replace(/\//g, PATH.sep);
+                var filepath = [folderpath, relpath].join(PATH.sep);
                 //logger("info","GetStateFile", `Return File ${filepath}`)
-                FS.readFile(filepath,(err,data)=> {
+                FS.readFile(filepath, (err, data) => {
                     if (err) {
-                        logger("err","GetStateFile", `Error read ${filepath} , ${err}`)
+                        logger("err", "GetStateFile", `Error read ${filepath} , ${err}`)
                         res.status(500).send(err);
                         return;
                     }
@@ -421,18 +406,18 @@ class WebServer {
                     return;
                 }
 
-                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
-                var relpath = decodeURI(req.path).replace(/%23/g,"#").slice(("/data/" + req.params.state+ "/").length).replace(/\//g,PATH.sep);
-                var filepath = [folderpath,relpath].join(PATH.sep);
+                var folderpath = [__dirname, "data", req.params.state].join(PATH.sep);
+                var relpath = decodeURI(req.path).replace(/%23/g, "#").slice(("/data/" + req.params.state + "/").length).replace(/\//g, PATH.sep);
+                var filepath = [folderpath, relpath].join(PATH.sep);
                 if (FS.existsSync(folderpath)) {
-                  FS.writeFile(filepath,req.body,(err)=> {
-                    if (err) {
-                        logger("err", "postStateFile", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
-                        res.status(500).send(err);
-                        return;
-                    }
-                    res.status(200).send()
-                  });
+                    FS.writeFile(filepath, req.body, (err) => {
+                        if (err) {
+                            logger("err", "postStateFile", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                            res.status(500).send(err);
+                            return;
+                        }
+                        res.status(200).send()
+                    });
                 }
                 else {
                     logger("err", "postStateFile", `State not found "${req.params.state}"`)
@@ -452,46 +437,46 @@ class WebServer {
                     return;
                 }
 
-                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
-                var relpath = decodeURI(req.path).replace(/%23/g,"#").slice(("/data/" + req.params.state+ "/").length).replace(/\//g,PATH.sep);
-                var filepath = [folderpath,relpath].join(PATH.sep);
+                var folderpath = [__dirname, "data", req.params.state].join(PATH.sep);
+                var relpath = decodeURI(req.path).replace(/%23/g, "#").slice(("/data/" + req.params.state + "/").length).replace(/\//g, PATH.sep);
+                var filepath = [folderpath, relpath].join(PATH.sep);
                 if (FS.existsSync(folderpath)) {
-                  FS.rm(filepath,(err)=> {
-                    if (err) {
-                        logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
-                        res.status(500).send(err);
-                        return;
-                    }
-                    res.status(200).send()
-                  });
+                    FS.rm(filepath, (err) => {
+                        if (err) {
+                            logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                            res.status(500).send(err);
+                            return;
+                        }
+                        res.status(200).send()
+                    });
                 }
                 else {
                     logger("err", "newlatest", `State not found "${req.params.state}"`)
                     res.status(404).send(`State not found "§${req.params.state}"`);
                     return;
                 }
-/*              
-                this.getLatestFolder().then((latestFolder) => {
-                    
-                    let curdate = new Date(Date.now())
-                    var filename = `${host.name}+${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}`
-                    var targetPath = [__dirname, "data", filename].join(PATH.sep);
-                    var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
-
-                    FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
-                        if (err) {
-                            logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
-                            res.status(500).send(err);
-                            return;
-                        }
-                        logger("info", "newlatest", `New ${filename}`)
-                        res.status(200).send(filename);
-                    });
-                });
-*/
+                /*              
+                                this.getLatestFolder().then((latestFolder) => {
+                                    
+                                    let curdate = new Date(Date.now())
+                                    var filename = `${host.name}+${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}`
+                                    var targetPath = [__dirname, "data", filename].join(PATH.sep);
+                                    var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
+                
+                                    FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
+                                        if (err) {
+                                            logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                                            res.status(500).send(err);
+                                            return;
+                                        }
+                                        logger("info", "newlatest", `New ${filename}`)
+                                        res.status(200).send(filename);
+                                    });
+                                });
+                */
 
             });
-           
+
             // become host
             this.webserver.get("/host", (req, res) => {
                 var authorization = req.headers.authorization;
@@ -544,6 +529,7 @@ WebServerClient.setup().then(() => {
 /////////////////////////////////////////////////////////////////
 //#region TCP Server
 const Net = require('net');
+const { resolveObjectURL } = require('buffer');
 class TcpServer {
     constructor(config, incommingEvents, outgoingEvents) {
         this.config = config;
