@@ -37,7 +37,7 @@ process.stdin.on('keypress', (str, key) => {
 var logger_names = [];
 var logger_backlog = [];
 var logger_input = false;
-var logger_colors = { err: "\u001b[31m", info: "\x1b[37m", warn: "\x1b[33m", reset:"\u001b[0m"}
+var logger_colors = { err: "\u001b[31m", info: "\x1b[37m", warn: "\x1b[33m", reset: "\u001b[0m" }
 function logger(type, name, text, force = false) {
     if (!logger_names.includes(name)) {
         logger_names.push(name);
@@ -123,7 +123,85 @@ class WebServer {
         this.incommingEvents = incommingEvents;
         this.outgoingEvents = outgoingEvents;
     }
+    // Helper
+    getAllFilesStats(rootpath, path = "") {
+        return new Promise((resolve, reject) => {
+            FS.readdir(rootpath + path, (err, files) => {
+                if (err) {
+                    reject(err);
+                }
+                files = files || []
+                var proms = [];
+                for (let a = 0; a < files.length; a++) {
+                    let childpath = path + "\\" + files[a];
+                    let stat = FS.statSync(rootpath + childpath);
+                    if (stat.isDirectory()) {
+                        proms = proms.concat(this.getAllFilesStats(rootpath, childpath));
+                    }
+                    else {
+                        stat.path = (childpath).replace(rootpath + PATH.sep, "").replaceAll("\\", "/");
+                        delete stat.dev;
+                        delete stat.mode;
+                        delete stat.mode;
+                        delete stat.uid;
+                        delete stat.gid;
+                        delete stat.rdev;
+                        delete stat.blksize;
+                        delete stat.ino;
+                        delete stat.blocks;
+                        delete stat.nlink;
+                        delete stat.atime;
+                        delete stat.mtime;
+                        delete stat.ctime;
+                        delete stat.birthtime;
 
+                        proms.push(new Promise((resolve) => { resolve(stat) }));
+                    }
+                }
+                Promise.allSettled(proms).then((results) => {
+                    var resolved = [];
+                    results.forEach(element => {
+                        if (element.status == "fulfilled") {
+                            resolved.push(element.value);
+                        }
+                    });
+                    resolve(resolved.flat());
+                });
+            });
+        });
+    }
+
+    getLatestFolder() {
+        return new Promise((resolve, reject) => {
+            var dataPath = [__dirname, "data"].join(PATH.sep);
+            FS.readdir(dataPath, { withFileTypes: true }, (err, files) => {
+                if (err) {
+                    reject(err);
+                }
+                files = files.filter((file) => {
+                    return file.isDirectory();
+                });
+                files = files.map((file) => {
+                    var split1 = file.name.replace(".zip", "").split("+");
+                    return { name: file.name, host: split1[0], date: new Date(split1[1].replace(/_/g, ":").replace(/,/g, ".")) };
+                });
+                files.sort((a, b) => {
+                    if (a.date < b.date) {
+                        return 1;
+                    }
+                    else if (a.date > b.date) {
+                        return -1;
+                    }
+                    else {
+                        return 0;
+                    }
+                });
+                resolve(files[0]);
+            });
+        });
+    }
+
+    // Doer
     disconnectWebsocketClients() {
         return new Promise((resolve, reject) => {
             if (this.websocketserver) {
@@ -152,9 +230,9 @@ class WebServer {
         try {
 
             this.websocketserver = new WebSocketServer({ noServer: true });
-            logger("info","Websocket","Start");
+            logger("info", "Websocket", "Start");
             this.websocketserver.on('connection', (ws, req) => {
-                logger("info","Websocket",`Host ${this.activeHost.name} connected`);
+                logger("info", "Websocket", `Host ${this.activeHost.name} connected`);
                 //logger("info", "WSS", "Connected");
                 ws.on('message', (text) => {
                     let data = JSON.parse(text);
@@ -170,29 +248,32 @@ class WebServer {
                 });
 
                 ws.on('close', (err) => {
-                    logger("info","Websocket",`Host ${this.activeHost.name} disconnected`);
+                    logger("info", "Websocket", `Host ${this.activeHost.name} disconnected`);
                     this.incommingEvents.removeAllListeners("event");
                     //logger("info", "WSS", "ws Closed");
                 });
                 ws.on('error', (err) => {
-                    logger("err","Websocket",`Host ${this.activeHost.name} errored ${err}`);
+                    logger("err", "Websocket", `Host ${this.activeHost.name} errored ${err}`);
                     this.incommingEvents.removeAllListeners("event");
                     //logger("err", "WSS", err);
                 });
             });
             this.websocketserver.on("close", () => {
                 this.incommingEvents.removeAllListeners("event");
-                logger("err","Websocket",`Closed`);
+                logger("err", "Websocket", `Closed`);
             });
             this.websocketserver.on("error", (err) => {
                 this.incommingEvents.removeAllListeners("event");
-                logger("err","Websocket",`Error ${err}`);
+                logger("err", "Websocket", `Error ${err}`);
             });
         }
         catch (err) {
-            logger("err","Websocket",`Error ${err}`);
+            logger("err", "Websocket", `Error ${err}`);
         }
     }
+
+
+
     setup() {
         return new Promise((resolve, reject) => {
             this.webserver.use(bodyParser.text({
@@ -205,65 +286,8 @@ class WebServer {
                 type: "application/octet-stream",
                 limit: '100000mb'
             }));
-
-            // Download latest File
-            this.webserver.get("/data", (req, res) => {
-                var authorization = req.headers.authorization;
-                var host = this.hosts.find((host) => {
-                    return host.authorization == authorization
-                });
-                if (host == undefined) {
-                    res.status(401).send("host not found");
-                    return;
-                }
-                var dataPath = `${__dirname}${PATH.sep}data`
-
-                FS.mkdir(PATH.dirname(dataPath), { recursive: true }, (err) => {
-                    if (err) {
-                        console.trace(err);
-                        res.status(400).send(err);
-                        return;
-                    }
-                    FS.readdir(dataPath, { withFileTypes: true }, (err, files) => {
-                        if (err) {
-                            console.trace(err);
-                            res.status(400).send(err);
-                            return;
-                        }
-                        files = files.filter((file) => {
-                            return file.isFile();
-                        })
-                        files = files.map((file) => {
-                            var split1 = file.name.replace(".zip", "").split("#");
-                            return { name: file.name, host: split1[0], date: new Date(split1[1].replace(/_/g, ":").replace(/,/g, ".")) };
-                        });
-
-                        files.sort((a, b) => {
-                            if (a.date < b.date) {
-                                return 1;
-                            }
-                            else if (a.date > b.date) {
-                                return -1;
-                            }
-                            else {
-                                return 0;
-                            }
-                        })
-                        logger("info","Get Service",`Current Data:${files[0].name}`);
-                        FS.readFile(dataPath + PATH.sep + files[0].name, { encoding: null }, (err, data) => {
-                            if (err) {
-                                console.trace(err);
-                                res.status(400).send(err);
-                                return;
-                            }
-                            res.status(200).send(data);
-                        });
-                    })
-                });
-            });
-            // Upload File 
-            this.webserver.post("/data", (req, res) => {
-                var data = req.body;
+            // get get File Stats
+            this.webserver.get("/latest", (req, res) => {
                 var authorization = req.headers.authorization;
                 var host = this.hosts.find((host) => {
                     return host.authorization == authorization
@@ -272,31 +296,202 @@ class WebServer {
                     res.status(401).send();
                     return;
                 }
-                res.status(200).send();
-                let curdate = new Date(Date.now())
-                var filename = `${host.name}#${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}.zip`
-                var filepath = `${__dirname}${PATH.sep}data${PATH.sep}${filename}`;
-                FS.mkdir(PATH.dirname(filepath), { recursive: true }, (err) => {
-                    if (err) {
-                        console.trace(err);
-                        //res.status(400).send(err);
-                        return;
-                    }
-                    var filewriter = FS.createWriteStream(filepath);
-                    req.pipe(filewriter).on("end",()=> {
-                        logger("Webserver", `Uploaded new Service ${filename}`);
-                        //res.status(200).send();
-                    })
-                    /*FS.writeFile(filepath, data, (err) => {
-                        if (err) {
-                            console.trace(err);
-                            res.status(400).send(err);
-                            return;
-                        }
-                        
-                    });*/
+               
+                this.getLatestFolder().then((latest)=> {
+                    res.status(200).send(latest.name);
+                },(err)=> {
+                    logger("info", "latest", `Error ${err}`);
+                    res.status(500).send(err);
                 });
             });
+            // get File
+           /* this.webserver.get("/latest/*", (req, res) => {
+                var authorization = req.headers.authorization;
+                var host = this.hosts.find((host) => {
+                    return host.authorization == authorization
+                });
+                if (host == undefined) {
+                    res.status(401).send();
+                    return;
+                }
+
+                getLatestFolder().then((latestFolder) => {
+                    var path = req.path.slice(13).replace(/\//g, PATH.sep);
+                    var filePath = [dataPath, latestFolder.name, path].join(PATH.sep);
+                    console.log(filePath);
+                    if (!FS.existsSync(filePath)) {
+                        res.status(404).send("File not found");
+                        return;
+                    }
+                    FS.readFile(filePath, (err, data) => {
+                        if (err) {
+                            logger("err", "Get Lastest File", `Error on ${path} ${err}`)
+                            res.status(500).send(err);
+                            return;
+                        }
+                        res.send(data);
+                    });
+
+                });
+            });*/
+            // Create a new State
+            this.webserver.get("/newlatest", (req, res) => {
+                var authorization = req.headers.authorization;
+                var host = this.hosts.find((host) => {
+                    return host.authorization == authorization
+                });
+                if (host == undefined) {
+                    res.status(401).send();
+                    return;
+                }
+                this.getLatestFolder().then((latestFolder) => {
+                    if ((Date.now() - latestFolder.date.getTime() < 30000) && (host.name == latestFolder.host)) {
+                        logger("info", "newlatest", `Old ${latestFolder.name}`)
+                        res.status(200).send(latestFolder.name);
+                        return;
+                    }
+                    let curdate = new Date(Date.now())
+                    var filename = `${host.name}+${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}`
+                    var targetPath = [__dirname, "data", filename].join(PATH.sep);
+                    var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
+
+                    FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
+                        if (err) {
+                            logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                            res.status(500).send(err);
+                            return;
+                        }
+                        logger("info", "newlatest", `New ${filename}`)
+                        res.status(200).send(filename);
+                    });
+                });
+
+
+            });
+            // Upload a new File to state
+            this.webserver.get("/data/:state", (req, res) => {
+                var authorization = req.headers.authorization;
+                var host = this.hosts.find((host) => {
+                    return host.authorization == authorization
+                });
+                if (host == undefined) {
+                    res.status(401).send();
+                    return;
+                }
+                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
+
+                    this.getAllFilesStats(folderpath).then((stats) => {
+                        res.status(200).json(stats);
+                    }, (err) => {
+                        res.status(500).send(err);
+                    });
+        
+            });
+            // Get File
+            this.webserver.get("/data/:state/*", (req, res) => {
+                var authorization = req.headers.authorization;
+                var host = this.hosts.find((host) => {
+                    return host.authorization == authorization
+                });
+                if (host == undefined) {
+                    res.status(401).send();
+                    return;
+                }
+
+                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
+                var relpath = decodeURI(req.path).replace(/%23/g,"#").slice(("/data/" + req.params.state+ "/").length).replace(/\//g,PATH.sep);
+                var filepath = [folderpath,relpath].join(PATH.sep);
+                //logger("info","GetStateFile", `Return File ${filepath}`)
+                FS.readFile(filepath,(err,data)=> {
+                    if (err) {
+                        logger("err","GetStateFile", `Error read ${filepath} , ${err}`)
+                        res.status(500).send(err);
+                        return;
+                    }
+                    res.status(200).send(data);
+                })
+            });
+            this.webserver.post("/data/:state/*", (req, res) => {
+                var authorization = req.headers.authorization;
+                var host = this.hosts.find((host) => {
+                    return host.authorization == authorization
+                });
+                if (host == undefined) {
+                    res.status(401).send();
+                    return;
+                }
+
+                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
+                var relpath = decodeURI(req.path).replace(/%23/g,"#").slice(("/data/" + req.params.state+ "/").length).replace(/\//g,PATH.sep);
+                var filepath = [folderpath,relpath].join(PATH.sep);
+                if (FS.existsSync(folderpath)) {
+                  FS.writeFile(filepath,req.body,(err)=> {
+                    if (err) {
+                        logger("err", "postStateFile", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                        res.status(500).send(err);
+                        return;
+                    }
+                    res.status(200).send()
+                  });
+                }
+                else {
+                    logger("err", "postStateFile", `State not found "${req.params.state}"`)
+                    res.status(404).send(`State not found "§${req.params.state}"`);
+                    return;
+                }
+
+
+            });
+            this.webserver.delete("/data/:state/*", (req, res) => {
+                var authorization = req.headers.authorization;
+                var host = this.hosts.find((host) => {
+                    return host.authorization == authorization
+                });
+                if (host == undefined) {
+                    res.status(401).send();
+                    return;
+                }
+
+                var folderpath = [__dirname,"data", req.params.state].join(PATH.sep);
+                var relpath = decodeURI(req.path).replace(/%23/g,"#").slice(("/data/" + req.params.state+ "/").length).replace(/\//g,PATH.sep);
+                var filepath = [folderpath,relpath].join(PATH.sep);
+                if (FS.existsSync(folderpath)) {
+                  FS.rm(filepath,(err)=> {
+                    if (err) {
+                        logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                        res.status(500).send(err);
+                        return;
+                    }
+                    res.status(200).send()
+                  });
+                }
+                else {
+                    logger("err", "newlatest", `State not found "${req.params.state}"`)
+                    res.status(404).send(`State not found "§${req.params.state}"`);
+                    return;
+                }
+/*              
+                this.getLatestFolder().then((latestFolder) => {
+                    
+                    let curdate = new Date(Date.now())
+                    var filename = `${host.name}+${(curdate.toISOString()).replace(/:/g, "_").replace(/\./g, ",")}`
+                    var targetPath = [__dirname, "data", filename].join(PATH.sep);
+                    var sourcePath = [__dirname, "data", latestFolder.name].join(PATH.sep);
+
+                    FS.cp(sourcePath, targetPath, { recursive: true }, (err) => {
+                        if (err) {
+                            logger("err", "newlatest", `Error copy from ${latestFolder.name} to ${filename} ${err}`)
+                            res.status(500).send(err);
+                            return;
+                        }
+                        logger("info", "newlatest", `New ${filename}`)
+                        res.status(200).send(filename);
+                    });
+                });
+*/
+
+            });
+           
             // become host
             this.webserver.get("/host", (req, res) => {
                 var authorization = req.headers.authorization;
@@ -333,7 +528,7 @@ class WebServer {
                 return;
             }
 
-            
+
             this.websocketserver.handleUpgrade(request, socket, head, socket => {
                 this.websocketserver.emit('connection', socket, request);
             });
