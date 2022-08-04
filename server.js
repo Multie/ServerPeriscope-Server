@@ -546,75 +546,80 @@ class TcpServer {
         this.averagechunkSize = 0;
         this.messagecount = 0;
 
-        setInterval(()=> {
+        setInterval(() => {
 
-            var messagesperSek  = this.messagecount / 10;
-            logger("info","TCP",`Status\tConnections:${ Object.keys(this.connections).length} Msg/s:${messagesperSek} ChunkSizes:${this.averagechunkSize}`)
+            var messagesperSek = this.messagecount / 10;
+            logger("info", "TCP", `Status\tConnections:${Object.keys(this.connections).length} Msg/s:${messagesperSek} ChunkSizes:${this.averagechunkSize}`)
             this.messagecount = 0;
-        },10000);
+        }, 10000);
     }
     setup() {
-        this.tcpserver.on('connection', (socket) => {
-            try {
-                logger("info","TCP",`Connect\tConnections:${ Object.keys(this.connections).length} `)
-                var connection = {};
-                connection.ip = socket.remoteAddress;
-                connection.port = socket.remotePort;
-                connection.timestemp = Date.now();
-                connection.event = "connection";
-                this.connections[socket.remoteAddress+socket.remotePort] = connection;
- 
-                this.incommingEvents.emit("event", connection);
+        try {
+            this.tcpserver.on('connection', (socket) => {
+                try {
+                    logger("info", "TCP", `Connect\tConnections:${Object.keys(this.connections).length} `)
+                    var connection = {};
+                    connection.ip = socket.remoteAddress;
+                    connection.port = socket.remotePort;
+                    connection.timestemp = Date.now();
+                    connection.event = "connection";
+                    this.connections[socket.remoteAddress + socket.remotePort] = connection;
 
-                var event = ((data) => {
-                    if (!data) {
-                        return;
-                    }
-                    if (connection.ip == data.ip && connection.id == data.id && connection.port == data.port) {
-                        if (data.event == "message") {
-                            let buf = new Buffer.from(Uint8Array.from(data.data));
-                            socket.write(buf);
-                        }
-                        else if (data.event == "closed") {
-                            logger("info","TCP",`Closed\tConnections:${ Object.keys(this.connections).length} `)
-                            socket.destroy();
-                        }
-                    }
-                });
-                this.outgoingEvents.on("event", event);
-                socket.on('data', (chunk) => {
-                    this.messagecount++;
-                    this.averagechunkSize = (9/10) * this.averagechunkSize + 1/10 * chunk.length;
-                    if (chunk.length > 0) {
-                        connection.data = new Array(chunk.length);
-                        for (let i = 0; i < chunk.length; i = i + 1)
-                            connection.data[i] = chunk[i];
-                    }
-                    else {
-                        connection.data = [];
-                    }
-                    connection.event = "message";
                     this.incommingEvents.emit("event", connection);
-                });
-                socket.on('end', () => {
-                    logger("info","TCP",`Closed\tConnections:${ Object.keys(this.connections).length} `)
-                    connection.message = "";
-                    connection.event = "closed";
-                    this.incommingEvents.emit("event", connection);
-                    this.outgoingEvents.removeListener("event", event);
-                    
-                    delete this.connections[connection.ip+connection.port] 
-                });
 
-            }
-            catch (err) {
+                    var event = ((data) => {
+                        if (!data) {
+                            return;
+                        }
+                        if (connection.ip == data.ip && connection.id == data.id && connection.port == data.port) {
+                            if (data.event == "message") {
+                                let buf = new Buffer.from(Uint8Array.from(data.data));
+                                socket.write(buf);
+                            }
+                            else if (data.event == "closed") {
+                                logger("info", "TCP", `Closed\tConnections:${Object.keys(this.connections).length} `)
+                                socket.destroy();
+                            }
+                        }
+                    });
+                    this.outgoingEvents.on("event", event);
+                    socket.on('data', (chunk) => {
+                        this.messagecount++;
+                        this.averagechunkSize = (9 / 10) * this.averagechunkSize + 1 / 10 * chunk.length;
+                        if (chunk.length > 0) {
+                            connection.data = new Array(chunk.length);
+                            for (let i = 0; i < chunk.length; i = i + 1)
+                                connection.data[i] = chunk[i];
+                        }
+                        else {
+                            connection.data = [];
+                        }
+                        connection.event = "message";
+                        this.incommingEvents.emit("event", connection);
+                    });
+                    socket.on('end', () => {
+                        logger("info", "TCP", `Closed\tConnections:${Object.keys(this.connections).length} `)
+                        connection.message = "";
+                        connection.event = "closed";
+                        this.incommingEvents.emit("event", connection);
+                        this.outgoingEvents.removeListener("event", event);
+
+                        delete this.connections[connection.ip + connection.port]
+                    });
+
+                }
+                catch (err) {
+                    logger("err", "TCP", err);
+                }
+            });
+            this.tcpserver.on("error", (err) => {
+                this.outgoingEvents.removeAllListeners("event");
                 logger("err", "TCP", err);
-            }
-        });
-        this.tcpserver.on("error", (err) => {
-            this.outgoingEvents.removeAllListeners("event");
+            });
+        }
+        catch (err) {
             logger("err", "TCP", err);
-        });
+        }
     }
     start() {
         this.tcpserver.listen(this.config.recievePort, () => {
