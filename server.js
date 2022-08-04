@@ -250,6 +250,10 @@ class WebServer {
 
                 });
 
+                setInterval(() => {
+                    ws.send(JSON.stringify({}));
+                }, 1000);
+
                 ws.on('close', (err) => {
                     logger("info", "Websocket", `Host ${this.activeHost.name} disconnected`);
                     this.incommingEvents.removeAllListeners("event");
@@ -537,24 +541,18 @@ class TcpServer {
         this.incommingEvents = incommingEvents;
         this.outgoingEvents = outgoingEvents;
         this.tcpserver = new Net.Server();
-        this.connections = [];
+        this.connections = {};
     }
     setup() {
         this.tcpserver.on('connection', (socket) => {
             try {
-                // Limit Maximale Verbindungen gleichzeitig
-                var cons = this.connections.filter((val) => {
-                    return val.ip == socket.remoteAddress;
-                })
-                if (cons.length > 5) {
-                    socket.destroy();
-                    return;
-                }
+                logger("info","TCP",`Connect\tConnections:${ Object.keys(this.connections).length} `)
                 var connection = {};
                 connection.ip = socket.remoteAddress;
                 connection.port = socket.remotePort;
                 connection.event = "connection";
-                this.connections.push(connection);
+                connections[socket.remoteAddress+socket.remotePort] = connection;
+ 
                 this.incommingEvents.emit("event", connection);
 
                 var event = ((data) => {
@@ -567,6 +565,7 @@ class TcpServer {
                             socket.write(buf);
                         }
                         else if (data.event == "closed") {
+                            logger("info","TCP",`Closed\tConnections:${ Object.keys(this.connections).length} `)
                             socket.destroy();
                         }
                     }
@@ -585,12 +584,13 @@ class TcpServer {
                     this.incommingEvents.emit("event", connection);
                 });
                 socket.on('end', () => {
+                    logger("info","TCP",`Closed\tConnections:${ Object.keys(this.connections).length} `)
                     connection.message = "";
                     connection.event = "closed";
                     this.incommingEvents.emit("event", connection);
                     this.outgoingEvents.removeListener("event", event);
-                    var index = this.connections.indexOf(connection);
-                    this.connections.splice(index, 1);
+                    
+                    delete connections[connection.ip+connection.port] 
                 });
 
             }
