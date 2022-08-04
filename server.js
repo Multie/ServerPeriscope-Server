@@ -545,6 +545,7 @@ class TcpServer {
 
         this.averagechunkSize = 0;
         this.messagecount = 0;
+        
 
         setInterval(() => {
 
@@ -557,14 +558,14 @@ class TcpServer {
         try {
             this.tcpserver.on('connection', (socket) => {
                 try {
-                    logger("info", "TCP", `Connect\tConnections:${Object.keys(this.connections).length} `)
+                   
                     var connection = {};
                     connection.ip = socket.remoteAddress;
                     connection.port = socket.remotePort;
                     connection.timestemp = Date.now();
                     connection.event = "connection";
                     this.connections[socket.remoteAddress + socket.remotePort] = connection;
-
+                    logger("info", "TCP", `Connect\tConnections:${Object.keys(this.connections).length} `)
                     this.incommingEvents.emit("event", connection);
 
                     var event = ((data) => {
@@ -594,6 +595,8 @@ class TcpServer {
                         else {
                             connection.data = [];
                         }
+                        connection.number =  this.messagecount++;
+                        connection.data = DATe.now();
                         connection.event = "message";
                         this.incommingEvents.emit("event", connection);
                     });
