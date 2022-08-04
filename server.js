@@ -543,12 +543,13 @@ class TcpServer {
         this.tcpserver = new Net.Server();
         this.connections = {};
 
+        this.averagechunkSize = 0;
         this.messagecount = 0;
 
         setInterval(()=> {
 
             var messagesperSek  = this.messagecount / 10;
-            logger("info","TCP",`Status\tConnections:${ Object.keys(this.connections).length} Msg/s:${messagesperSek}`)
+            logger("info","TCP",`Status\tConnections:${ Object.keys(this.connections).length} Msg/s:${messagesperSek} ChunkSizes:${this.averagechunkSize}`)
             this.messagecount = 0;
         },10000);
     }
@@ -583,6 +584,7 @@ class TcpServer {
                 this.outgoingEvents.on("event", event);
                 socket.on('data', (chunk) => {
                     this.messagecount++;
+                    this.averagechunkSize = (9/10) * this.averagechunkSize + 1/10 * chunk.length;
                     if (chunk.length > 0) {
                         connection.data = new Array(chunk.length);
                         for (let i = 0; i < chunk.length; i = i + 1)
