@@ -596,7 +596,7 @@ class TcpServer {
                             connection.data = [];
                         }
                         connection.number =  this.messagecount++;
-                        connection.data = Date.now();
+                        connection.date = Date.now();
                         connection.event = "message";
                         this.incommingEvents.emit("event", connection);
                     });
