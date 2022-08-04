@@ -551,7 +551,7 @@ class TcpServer {
                 connection.ip = socket.remoteAddress;
                 connection.port = socket.remotePort;
                 connection.event = "connection";
-                connections[socket.remoteAddress+socket.remotePort] = connection;
+                this.connections[socket.remoteAddress+socket.remotePort] = connection;
  
                 this.incommingEvents.emit("event", connection);
 
@@ -590,7 +590,7 @@ class TcpServer {
                     this.incommingEvents.emit("event", connection);
                     this.outgoingEvents.removeListener("event", event);
                     
-                    delete connections[connection.ip+connection.port] 
+                    delete this.connections[connection.ip+connection.port] 
                 });
 
             }
