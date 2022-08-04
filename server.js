@@ -542,6 +542,15 @@ class TcpServer {
         this.outgoingEvents = outgoingEvents;
         this.tcpserver = new Net.Server();
         this.connections = {};
+
+        this.messagecount = 0;
+
+        setInterval(()=> {
+
+            var messagesperSek  = this.messagecount / 10;
+            logger("info","TCP",`Status\tConnections:${ Object.keys(this.connections).length} Msg/s:${messagesperSek}`)
+            this.messagecount = 0;
+        },10000);
     }
     setup() {
         this.tcpserver.on('connection', (socket) => {
@@ -550,6 +559,7 @@ class TcpServer {
                 var connection = {};
                 connection.ip = socket.remoteAddress;
                 connection.port = socket.remotePort;
+                connection.timestemp = Date.now();
                 connection.event = "connection";
                 this.connections[socket.remoteAddress+socket.remotePort] = connection;
  
@@ -572,6 +582,7 @@ class TcpServer {
                 });
                 this.outgoingEvents.on("event", event);
                 socket.on('data', (chunk) => {
+                    this.messagecount++;
                     if (chunk.length > 0) {
                         connection.data = new Array(chunk.length);
                         for (let i = 0; i < chunk.length; i = i + 1)
