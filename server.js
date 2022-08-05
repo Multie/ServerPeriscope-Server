@@ -76,7 +76,7 @@ function timeTimes(name,date) {
     if (logTimesData[name] == undefined || logTimesData[name] == null) {
         logTimesData[name] = 0;
     }
-    logTimesData[name] = 9/10 * logTimesData[name] + 1/10 * Date.now() - date;
+    logTimesData[name] = ((9/10) * logTimesData[name]) + (1/10) * (Date.now() - date);
 }
 function logTimes() {
     var keys = Object.keys(logTimesData);
@@ -625,7 +625,7 @@ class TcpServer {
                         else {
                             connection.data = [];
                         }
-                        timeTimes("InParsed Data",connection.date);
+                        timeTimes("InData Parsed",connection.date);
                         this.incommingEvents.emit("event", connection);
                         
                     });
