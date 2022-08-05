@@ -80,9 +80,11 @@ function timeTimes(name, date) {
 }
 function logTimes() {
     var keys = Object.keys(logTimesData);
-    for (var a = 0; a < keys.length; a++) {
-        logger("info", "time", `Timer:${keys[a]}\t${logTimesData[keys[a]]}ms`);
+    let text = "";
+    for (var a = 0; a < keys.length;a++) {
+        text += ` ${keys[a]}: ${ Math.round(logTimesData[keys[a]]*1000)/1000} ms`;
     }
+    logger("info","time",text);
 }
 
 
@@ -271,10 +273,12 @@ class WebServer {
                 ws.on('message', (text) => {
                     var data = JSON.parse(text);
                     if (data) {
+                        timeTimes("wsRecieved",data.timestamp);
                         if (this.tcpclient.connections[data.id]) {
                             if (data.event == "message") {
                                 let buf = new Buffer.from(Uint8Array.from(data.data));
                                 this.tcpclient.connections[data.id].socket.write(buf);
+                                timeTimes("tcpSend",data.timestamp);
                             }
                             else if (data.event == "closed") {
                                 this.tcpclient.connections[data.id].socket.destroy();
@@ -605,9 +609,11 @@ class TcpServer {
 
                     //this.incommingStream.on("event", event);
                     socket.on('data', (chunk) => {
+                        
                         this.messagecount++;
                         this.averagechunkSize = (9 / 10) * this.averagechunkSize + 1 / 10 * chunk.length;
                         connection.timestamp = Date.now();
+                        timeTimes("tcpRecieved",connection.timestamp);
                         connection.event = "message";
                         if (chunk.length > 0) {
                             connection.data = new Array(chunk.length);
@@ -621,6 +627,7 @@ class TcpServer {
 
                         if (this.webserverclient) {
                             this.webserverclient.websocketclient.send(JSON.stringify(connection))
+                            timeTimes("wsSend",connection.timestamp);
                         }
 
                         //this.incommingEvents.emit("event", connection);
