@@ -276,6 +276,10 @@ class WebServer {
                                 let buf = new Buffer.from(Uint8Array.from(data.data));
                                 this.tcpclient.connections[data.id].socket.write(buf);
                             }
+                            else if (data.event == "closed") {
+                                this.tcpclient.connections[data.id].socket.destroy();
+                                delete this.connections[connection.id]
+                            }
                         }
                     }
                 });
@@ -599,12 +603,8 @@ class TcpServer {
                         delete this.connections[connection.id]
                     }
 
-
-
-
                     //this.incommingStream.on("event", event);
                     socket.on('data', (chunk) => {
-
                         this.messagecount++;
                         this.averagechunkSize = (9 / 10) * this.averagechunkSize + 1 / 10 * chunk.length;
                         connection.timestamp = Date.now();
@@ -633,6 +633,9 @@ class TcpServer {
                         connection.event = "closed";
                         //this.incommingEvents.emit("event", connection);
                         //this.outgoingEvents.removeListener("event", event);
+                        if (this.webserverclient) {
+                            this.webserverclient.websocketclient.send(JSON.stringify(connection))
+                        }
                         delete this.connections[connection.id]
                     });
                     socket.on('close', () => {
@@ -641,6 +644,9 @@ class TcpServer {
                         connection.event = "closed";
                         //this.incommingEvents.emit("event", connection);
                         //this.outgoingEvents.removeListener("event", event);
+                        if (this.webserverclient) {
+                            this.webserverclient.websocketclient.send(JSON.stringify(connection))
+                        }
                         delete this.connections[connection.id]
                     });
 
