@@ -652,7 +652,10 @@ class TcpServer {
                         //this.incommingEvents.emit("event", connection);
                         //this.outgoingEvents.removeListener("event", event);
                         if (this.webserverclient) {
-                            this.webserverclient.websocketclient.send(JSON.stringify(connection))
+                            if (this.webserverclient.websocketclient) {
+                                this.webserverclient.websocketclient.send(JSON.stringify(connection))
+                            }
+                            
                         }
                         delete this.connections[connection.id]
                     });
