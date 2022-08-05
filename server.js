@@ -625,7 +625,7 @@ class TcpServer {
                         else {
                             connection.data = [];
                         }
-                        timeTimes("InParsed Data",data.date);
+                        timeTimes("InParsed Data",connection.date);
                         this.incommingEvents.emit("event", connection);
                         
                     });
