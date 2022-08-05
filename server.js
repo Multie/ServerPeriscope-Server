@@ -280,7 +280,7 @@ class WebServer {
 
                 setInterval(() => {
                     ws.send(JSON.stringify({event:"ping",data:"",date:Date.now()}));
-                }, 1000);
+                }, 200);
 
                 ws.on('close', (err) => {
                     logger("info", "Websocket", `Host ${this.activeHost.name} disconnected`);
