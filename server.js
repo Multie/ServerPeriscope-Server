@@ -72,11 +72,11 @@ function loggerResume() {
 }
 
 var logTimesData = {};
-function timeTimes(name, date) {
+function timeTimes(name, value) {
     if (logTimesData[name] == undefined || logTimesData[name] == null) {
         logTimesData[name] = 0;
     }
-    logTimesData[name] = ((9 / 10) * logTimesData[name]) + (1 / 10) * (Date.now() - date);
+    logTimesData[name] = ((9 / 10) * logTimesData[name]) + (1 / 10) * (value);
 }
 function logTimes() {
     var keys = Object.keys(logTimesData);
@@ -273,12 +273,13 @@ class WebServer {
                 ws.on('message', (text) => {
                     var data = JSON.parse(text);
                     if (data) {
-                        timeTimes("wsRecieved",data.timestamp);
+                        timeTimes("wsRecieved",Date.now() - data.timestamp);
                         if (this.tcpclient.connections[data.id]) {
                             if (data.event == "message") {
+                                timeTimes("wsRecievedSize",data.data.length);
                                 let buf = new Buffer.from(Uint8Array.from(data.data));
                                 this.tcpclient.connections[data.id].socket.write(buf);
-                                timeTimes("tcpSend",data.timestamp);
+                                timeTimes("tcpSend",Date.now() - data.timestamp);
                             }
                             else if (data.event == "closed") {
                                 this.tcpclient.connections[data.id].socket.destroy();
@@ -613,7 +614,8 @@ class TcpServer {
                         this.messagecount++;
                         this.averagechunkSize = (9 / 10) * this.averagechunkSize + 1 / 10 * chunk.length;
                         connection.timestamp = Date.now();
-                        timeTimes("tcpRecieved",connection.timestamp);
+                        timeTimes("tcpRecievedSize",chunk.length);
+                        timeTimes("tcpRecieved",Date.now() - connection.timestamp);
                         connection.event = "message";
                         if (chunk.length > 0) {
                             connection.data = new Array(chunk.length);
@@ -623,11 +625,11 @@ class TcpServer {
                         else {
                             connection.data = [];
                         }
-                        timeTimes("InData Parsed", connection.timestamp);
+                        timeTimes("InData Parsed", Date.now() - connection.timestamp);
 
                         if (this.webserverclient) {
                             this.webserverclient.websocketclient.send(JSON.stringify(connection))
-                            timeTimes("wsSend",connection.timestamp);
+                            timeTimes("wsSend",Date.now() - connection.timestamp);
                         }
 
                         //this.incommingEvents.emit("event", connection);
