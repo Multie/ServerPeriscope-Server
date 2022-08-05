@@ -256,8 +256,13 @@ class WebServer {
                 ws.on('message', (text) => {
                     let data = JSON.parse(text);
                     try {
-                        outgoingEvents.emit("event", data);
-                        timeTimes("OutRecievdData",JSON.parse(data).date);
+                        if (data.event == "pong") {
+                            timeTimes("pong",data.date);
+                        }
+                        else {
+                            outgoingEvents.emit("event", data);
+                            timeTimes("OutRecievdData",date);
+                        }
                     }
                     catch 
                     {}
@@ -274,7 +279,7 @@ class WebServer {
                 });
 
                 setInterval(() => {
-                    ws.send(JSON.stringify({}));
+                    ws.send(JSON.stringify({event:"ping",data:"",date:Date.now()}));
                 }, 1000);
 
                 ws.on('close', (err) => {
