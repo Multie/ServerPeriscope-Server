@@ -70,6 +70,22 @@ function loggerResume() {
         logger(log.type, log.name, log.text);
     }
 }
+
+var logTimesData = {};
+function timeTimes(name,date) {
+    if (logTimesData[name] == undefined || logTimesData[name] == null) {
+        logTimesData[name] = 0;
+    }
+    logTimesData[name] = 9/10 * logTimesData[name] + 1/10 * Date.now() - date;
+}
+function logTimes() {
+    var keys = Object.keys(logTimesData);
+    for (var a = 0; a < keys.length;a++) {
+        logger("info","time",`Timer:${keys[a]}\t${logTimesData[keys[a]]}ms`);
+    }
+}
+
+
 //#endregion
 /////////////////////////////////////////////////////////////////
 //#region EventEmitter
@@ -239,11 +255,18 @@ class WebServer {
                 //logger("info", "WSS", "Connected");
                 ws.on('message', (text) => {
                     let data = JSON.parse(text);
-                    outgoingEvents.emit("event", data);
+                    try {
+                        outgoingEvents.emit("event", data);
+                        timeTimes("OutRecievdData",JSON.parse(data).date);
+                    }
+                    catch 
+                    {}
+                   
                 });
                 let sendData = (data) => {
                     //logger("info","WSS",(data));
                     ws.send(JSON.stringify(data));
+                    timeTimes("InSendData",data.date);
                 }
                 this.incommingEvents.on("event", sendData);
                 ws.on('pong', () => {
@@ -278,8 +301,6 @@ class WebServer {
             logger("err", "Websocket", `Error ${err}`);
         }
     }
-
-
 
     setup() {
         return new Promise((resolve, reject) => {
@@ -545,13 +566,15 @@ class TcpServer {
 
         this.averagechunkSize = 0;
         this.messagecount = 0;
-        
+        this.averageTime = 0;
 
         setInterval(() => {
 
             var messagesperSek = this.messagecount / 10;
             logger("info", "TCP", `Status\tConnections:${Object.keys(this.connections).length} Msg/s:${messagesperSek} ChunkSizes:${this.averagechunkSize}`)
             this.messagecount = 0;
+
+            logTimes();
         }, 10000);
     }
     setup() {
@@ -576,6 +599,10 @@ class TcpServer {
                             if (data.event == "message") {
                                 let buf = new Buffer.from(Uint8Array.from(data.data));
                                 socket.write(buf);
+                                if (data.date > 0) {
+                                    timeTimes("OutSendSendData",data.date);
+                                }
+
                             }
                             else if (data.event == "closed") {
                                 logger("info", "TCP", `Closed\tConnections:${Object.keys(this.connections).length} `)
@@ -587,6 +614,9 @@ class TcpServer {
                     socket.on('data', (chunk) => {
                         this.messagecount++;
                         this.averagechunkSize = (9 / 10) * this.averagechunkSize + 1 / 10 * chunk.length;
+                        connection.number =  this.messagecount++;
+                        connection.date = Date.now();
+                        connection.event = "message";
                         if (chunk.length > 0) {
                             connection.data = new Array(chunk.length);
                             for (let i = 0; i < chunk.length; i = i + 1)
@@ -595,10 +625,9 @@ class TcpServer {
                         else {
                             connection.data = [];
                         }
-                        connection.number =  this.messagecount++;
-                        connection.date = Date.now();
-                        connection.event = "message";
+                        timeTimes("InParsed Data",data.date);
                         this.incommingEvents.emit("event", connection);
+                        
                     });
                     socket.on('end', () => {
                         logger("info", "TCP", `Closed\tConnections:${Object.keys(this.connections).length} `)
