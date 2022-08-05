@@ -590,7 +590,6 @@ class TcpServer {
                     this.connections[socket.remoteAddress + socket.remotePort] = connection;
                     logger("info", "TCP", `Connect\tConnections:${Object.keys(this.connections).length} `)
                     this.incommingEvents.emit("event", connection);
-
                     var event = ((data) => {
                         if (!data) {
                             return;
@@ -607,6 +606,8 @@ class TcpServer {
                             else if (data.event == "closed") {
                                 logger("info", "TCP", `Closed\tConnections:${Object.keys(this.connections).length} `)
                                 socket.destroy();
+                                this.outgoingEvents.removeListener("event", event);
+                                delete this.connections[connection.ip + connection.port]
                             }
                         }
                     });
@@ -642,6 +643,7 @@ class TcpServer {
                 }
                 catch (err) {
                     logger("err", "TCP", err);
+                    
                 }
             });
             this.tcpserver.on("error", (err) => {
